@@ -1,0 +1,1 @@
+Photobucket is an AI-enabled photo management web app that helps users store, organize, and search their images effortlessly. It uses AWS Rekognition to automatically extract labels from uploaded photos, making your entire gallery searchable by content.
