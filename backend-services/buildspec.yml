@@ -1,0 +1,23 @@
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - echo "going to backend-services"
+      - cd backend-services
+      
+      - echo "zipping LF1 index-photos"
+      - cd index_photos
+      - zip lf1_package.zip lambda_function.py
+      
+      - echo "deploying LF1 to lambda"
+      - aws lambda update-function-code --function-name lf1-index-photos-photobucket --zip-file fileb://lf1_package.zip
+
+      - cd ..
+      
+      - echo "zipping LF2 search-photos"
+      - cd search_photos
+      - zip lf2_package.zip lambda_function.py
+
+      - echo "deploying LF2 to lambda"
+      - aws lambda update-function-code --function-name lf2-search-photos-photobucket --zip-file fileb://lf2_package.zip
