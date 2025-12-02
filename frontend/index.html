@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Photo Search</title>
+    
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/axios/dist/axios.standalone.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/crypto-js/rollups/hmac-sha256.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/crypto-js/rollups/sha256.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/crypto-js/components/hmac.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/crypto-js/components/enc-base64.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/url-template/url-template.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/apiGatewayCore/sigV4Client.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/apiGatewayCore/apiGatewayClient.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/apiGatewayCore/simpleHttpClient.js"></script>
+    <script type="text/javascript" src="apiGateway-js-sdk/lib/apiGatewayCore/utils.js"></script>
+    
+    <script type="text/javascript" src="apiGateway-js-sdk/apigClient.js"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 20px; padding: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        h1 { color: #667eea; text-align: center; margin-bottom: 40px; font-size: 2.5em; }
+        .section { margin-bottom: 40px; }
+        .section h2 { color: #333; margin-bottom: 20px; font-size: 1.5em; }
+        .search-box { display: flex; gap: 10px; margin-bottom: 30px; }
+        input[type="text"] { flex: 1; padding: 15px; border: 2px solid #ddd; border-radius: 10px; font-size: 16px; transition: border-color 0.3s; }
+        input[type="text"]:focus { outline: none; border-color: #667eea; }
+        button { padding: 15px 30px; background: #667eea; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 16px; font-weight: bold; transition: background 0.3s; }
+        button:hover { background: #5568d3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .upload-section { border: 2px dashed #667eea; border-radius: 10px; padding: 30px; text-align: center; background: #f9f9ff; }
+        .file-input-wrapper { margin: 20px 0; }
+        input[type="file"] { display: none; }
+        .file-label { display: inline-block; padding: 15px 30px; background: #667eea; color: white; border-radius: 10px; cursor: pointer; transition: background 0.3s; }
+        .file-label:hover { background: #5568d3; }
+        .selected-file { margin-top: 10px; color: #666; font-style: italic; }
+        .results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-top: 30px; }
+        .photo-card { border: 1px solid #ddd; border-radius: 10px; overflow: hidden; transition: transform 0.3s, box-shadow 0.3s; background: white; }
+        .photo-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .photo-card img { width: 100%; height: 200px; object-fit: cover; }
+        .photo-labels { padding: 15px; }
+        .label-tag { display: inline-block; background: #e0e7ff; color: #667eea; padding: 5px 10px; border-radius: 5px; margin: 5px 5px 5px 0; font-size: 12px; }
+        .no-results { text-align: center; padding: 40px; color: #999; font-size: 18px; }
+        .loading { text-align: center; padding: 20px; color: #667eea; font-size: 18px; }
+        .message { padding: 15px; border-radius: 10px; margin: 10px 0; text-align: center; }
+        .message.success { background: #d4edda; color: #155724; }
+        .message.error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖼️ PhotoBucket - AI Photo Search</h1>
+        
+        <div class="section">
+            <h2>Search Photos</h2>
+            <div class="search-box">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="Search for photos... (e.g., 'show me dogs' or 'cats and birds')"
+                    onkeypress="handleSearchKeyPress(event)"
+                >
+                <button onclick="searchPhotos()">Search</button>
+            </div>
+            <div id="searchResults"></div>
+        </div>
+
+        <div class="section">
+            <h2>Upload Photo</h2>
+            <div class="upload-section">
+                <p>Upload a new photo with optional custom labels</p>
+                
+                <div class="file-input-wrapper">
+                    <input 
+                        type="file" 
+                        id="photoFile" 
+                        accept="image/*"
+                        onchange="handleFileSelect(event)"
+                    >
+                    <label for="photoFile" class="file-label">
+                        Choose Photo
+                    </label>
+                    <div class="selected-file" id="selectedFile"></div>
+                </div>
+
+                <input 
+                    type="text" 
+                    id="customLabels" 
+                    placeholder="Custom labels (comma-separated, e.g., 'John, Vacation, Beach')"
+                    style="width: 100%; margin: 20px 0;"
+                >
+
+                <button onclick="uploadPhoto()" id="uploadBtn">Upload Photo</button>
+                
+                <div id="uploadMessage"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 3. INITIALIZE SDK CLIENT
+        var apigClient = apigClientFactory.newClient({
+            apiKey: '2JM8gxzCrF3sO7vcHrPIzaseqKDdbdWD2kKm6cU8'
+        });
+
+        let selectedFile = null;
+
+        function handleFileSelect(event) {
+            selectedFile = event.target.files[0];
+            const fileDisplay = document.getElementById('selectedFile');
+            
+            if (selectedFile) {
+                fileDisplay.textContent = `Selected: ${selectedFile.name}`;
+            } else {
+                fileDisplay.textContent = '';
+            }
+        }
+
+        function handleSearchKeyPress(event) {
+            if (event.key === 'Enter') {
+                searchPhotos();
+            }
+        }
+
+        function searchPhotos() {
+            const query = document.getElementById('searchInput').value.trim();
+            const resultsDiv = document.getElementById('searchResults');
+            
+            if (!query) {
+                resultsDiv.innerHTML = '<div class="message error">Please enter a search query</div>';
+                return;
+            }
+
+            resultsDiv.innerHTML = '<div class="loading">Searching...</div>';
+
+            // 4. SDK SEARCH CALL
+            var params = {
+                'q': query
+            };
+            var body = {};
+            var additionalParams = {};
+
+            apigClient.searchGet(params, body, additionalParams)
+                .then(function(result) {
+                    // Note: Depending on your lambda, result.data might be the array, or result.data.results
+                    var results = result.data.results || result.data;
+                    displayResults(results || []);
+                })
+                .catch(function(error) {
+                    console.error('Search error:', error);
+                    resultsDiv.innerHTML = `<div class="message error">Error searching photos. Check console.</div>`;
+                });
+        }
+
+        function displayResults(results) {
+            const resultsDiv = document.getElementById('searchResults');
+            
+            if (!results || results.length === 0) {
+                resultsDiv.innerHTML = '<div class="no-results">No photos found. Try a different search term.</div>';
+                return;
+            }
+
+            let html = '<div class="results-grid">';
+            
+            results.forEach(photo => {
+                html += `
+                    <div class="photo-card">
+                        <img src="${photo.url}" alt="Photo" onerror="this.src='https://via.placeholder.com/250x200?text=Image+Not+Found'">
+                        <div class="photo-labels">
+                            ${photo.labels.map(label => `<span class="label-tag">${label}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        }
+
+        // function uploadPhoto() {
+        //     if (!selectedFile) {
+        //         showUploadMessage('Please select a photo to upload', 'error');
+        //         return;
+        //     }
+
+        //     const customLabels = document.getElementById('customLabels').value.trim();
+        //     const uploadBtn = document.getElementById('uploadBtn');
+            
+        //     uploadBtn.disabled = true;
+        //     showUploadMessage('Uploading...', 'success');
+
+        //     // DEBUG: Prove the file exists
+        //     console.log("Selected File:", selectedFile.name);
+        //     console.log("File Size:", selectedFile.size);
+
+        //     // Use FileReader to read the raw binary data
+        //     var reader = new FileReader();
+            
+        //     reader.onload = function(e) {
+        //         // 1. Get the raw binary data (ArrayBuffer)
+        //         var arrayBuffer = e.target.result;
+                
+        //         // 2. Wrap it in a Blob (This forces the SDK to treat it as a file stream)
+        //         var blob = new Blob([new Uint8Array(arrayBuffer)], { type: selectedFile.type });
+                
+        //         console.log("Body ready to send. Size:", blob.size); // Should match File Size
+
+        //         var params = {
+        //             'filename': selectedFile.name,
+        //             'Content-Type': selectedFile.type,
+        //             'x-amz-meta-customLabels': customLabels
+        //         };
+
+        //         // Pass the BLOB as the body
+        //         var body = blob;
+
+        //         var additionalParams = {
+        //             headers: {
+        //                 'Content-Type': selectedFile.type,
+        //                 'x-amz-meta-customLabels': customLabels
+        //             }
+        //         };
+
+        //         apigClient.photosFilenamePut(params, body, additionalParams)
+        //             .then(function(result) {
+        //                 console.log("Success result:", result);
+        //                 showUploadMessage('Photo uploaded successfully!', 'success');
+        //                 // Reset form
+        //                 document.getElementById('photoFile').value = '';
+        //                 document.getElementById('customLabels').value = '';
+        //                 document.getElementById('selectedFile').textContent = '';
+        //                 selectedFile = null;
+        //                 uploadBtn.disabled = false;
+        //             })
+        //             .catch(function(error) {
+        //                 console.error('Upload error:', error);
+        //                 showUploadMessage('Error uploading photo. Check console.', 'error');
+        //                 uploadBtn.disabled = false;
+        //             });
+        //     };
+
+        //     // Trigger the read
+        //     reader.readAsArrayBuffer(selectedFile);
+        // }
+
+        const API_ENDPOINT = 'https://rw9cv8zi2b.execute-api.us-east-1.amazonaws.com/prod'; 
+
+        function uploadPhoto() {
+            if (!selectedFile) {
+                showUploadMessage('Please select a photo to upload', 'error');
+                return;
+            }
+
+            const customLabels = document.getElementById('customLabels').value.trim();
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            uploadBtn.disabled = true;
+            showUploadMessage('Uploading...', 'success');
+
+            // NATIVE FETCH (Works perfectly with Binary Files)
+            fetch(API_ENDPOINT + '/photos/' + selectedFile.name, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': selectedFile.type,
+                    'x-amz-meta-customLabels': customLabels,
+                    'x-api-key': '2JM8gxzCrF3sO7vcHrPIzaseqKDdbdWD2kKm6cU8' // Your API Key
+                },
+                body: selectedFile // Pass the File object directly
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                showUploadMessage('Photo uploaded successfully!', 'success');
+                
+                // Reset form
+                document.getElementById('photoFile').value = '';
+                document.getElementById('customLabels').value = '';
+                document.getElementById('selectedFile').textContent = '';
+                selectedFile = null;
+                uploadBtn.disabled = false;
+            })
+            .catch(error => {
+                console.error('Upload error:', error);
+                showUploadMessage('Error uploading photo.', 'error');
+                uploadBtn.disabled = false;
+            });
+        }
+
+        function showUploadMessage(message, type) {
+            const messageDiv = document.getElementById('uploadMessage');
+            messageDiv.innerHTML = `<div class="message ${type}">${message}</div>`;
+            setTimeout(() => { messageDiv.innerHTML = ''; }, 5000);
+        }
+    </script>
+</body>
+</html>

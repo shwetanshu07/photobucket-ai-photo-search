@@ -1,0 +1,18 @@
+# unlike the backend buildspec this one is only responsible for packaging the fe into artifact
+# in this i have used CodePipeline's native S3 deploy provider in the deploy stage
+# i have done this to cover both the ways in which we can handle deployment and its actually simpler
+# the s3 provider handles file extraction automatically
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - echo "packaging frontend files........"
+
+artifacts:
+  # find all files and folders inside frontend
+  files:
+    - 'frontend/**/*'
+    
+  # makes the frontend folder the root of the package important so that index.html lands in the S3 root
+  base-directory: 'frontend'
