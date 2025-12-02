@@ -10,9 +10,8 @@ phases:
       - echo "packaging frontend files........"
 
 artifacts:
-  # find all files and folders inside frontend
-  files:
-    - 'frontend/**/*'
-    
-  # makes the frontend folder the root of the package important so that index.html lands in the S3 root
+  # setting the root of artifact to be frontend folder
   base-directory: 'frontend'
+  # grab all files and folders inside frontend
+  files:
+    - '**/*'
